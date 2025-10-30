@@ -1,15 +1,25 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Container, Card, Button, Form, Alert, Row, Col, Navbar } from "react-bootstrap";
+import {
+  Container,
+  Card,
+  Button,
+  Form,
+  Alert,
+  Row,
+  Col,
+  Navbar,
+} from "react-bootstrap";
 
-const API = import.meta.env.VITE_API_URL; // example: http://localhost:5000 or your Render URL
+const API = import.meta.env.VITE_API_URL; // Example: http://localhost:5000 or your Render URL
 
 function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [products, setProducts] = useState([]);
-  const [msg, setMsg] = useState("");
+  const [loginMsg, setLoginMsg] = useState("");
+  const [cartMsg, setCartMsg] = useState("");
 
   // 🟢 Login handler
   const handleLogin = async () => {
@@ -19,18 +29,21 @@ function App() {
         { username, password },
         { withCredentials: true }
       );
-      setMsg(res.data.message);
+      setLoginMsg(res.data.message);
       setIsLoggedIn(true);
+      setCartMsg(""); // clear old cart messages
       fetchProducts();
     } catch (err) {
-      setMsg(err.response?.data?.message || "Login failed");
+      setLoginMsg(err.response?.data?.message || "Login failed");
     }
   };
 
   // 🟢 Fetch products
   const fetchProducts = async () => {
     try {
-      const res = await axios.get(`${API}/api/products`, { withCredentials: true });
+      const res = await axios.get(`${API}/api/products`, {
+        withCredentials: true,
+      });
       setProducts(res.data);
     } catch {
       setIsLoggedIn(false);
@@ -45,9 +58,9 @@ function App() {
         { productId: id },
         { withCredentials: true }
       );
-      setMsg(res.data.message);
+      setCartMsg(res.data.message);
     } catch {
-      setMsg("Session expired. Please log in again.");
+      setCartMsg("Session expired. Please log in again.");
       setIsLoggedIn(false);
     }
   };
@@ -57,10 +70,19 @@ function App() {
     await axios.post(`${API}/api/logout`, {}, { withCredentials: true });
     setIsLoggedIn(false);
     setProducts([]);
-    setMsg("Logged out successfully.");
+    setLoginMsg("");
+    setCartMsg("");
   };
 
-  // Auto-fetch if already logged in (optional)
+  // 🕐 Auto-clear cart message after 3 seconds
+  useEffect(() => {
+    if (cartMsg) {
+      const timer = setTimeout(() => setCartMsg(""), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [cartMsg]);
+
+  // 🕐 Auto-fetch products when logged in
   useEffect(() => {
     if (isLoggedIn) fetchProducts();
   }, [isLoggedIn]);
@@ -68,6 +90,7 @@ function App() {
   return (
     <Container className="py-5">
       {!isLoggedIn ? (
+        // 🔵 LOGIN VIEW
         <Card className="mx-auto shadow" style={{ maxWidth: "22rem" }}>
           <Card.Body>
             <Card.Title className="text-center mb-3">Login</Card.Title>
@@ -91,18 +114,20 @@ function App() {
               <Button variant="primary" className="w-100" onClick={handleLogin}>
                 Login
               </Button>
-              {msg && (
+
+              {loginMsg && (
                 <Alert
-                  variant={msg.includes("success") ? "success" : "danger"}
+                  variant={loginMsg.toLowerCase().includes("success") ? "success" : "danger"}
                   className="mt-3 text-center"
                 >
-                  {msg}
+                  {loginMsg}
                 </Alert>
               )}
             </Form>
           </Card.Body>
         </Card>
       ) : (
+        // 🟢 PRODUCTS VIEW
         <>
           <Navbar bg="dark" variant="dark" className="mb-4 px-3 rounded">
             <Navbar.Brand>Sensor Products</Navbar.Brand>
@@ -119,7 +144,11 @@ function App() {
                     <Card.Title>{p.name}</Card.Title>
                     <Card.Text>{p.desc}</Card.Text>
                     <Card.Text className="fw-bold">{p.price}</Card.Text>
-                    <Button variant="primary" className="w-100" onClick={() => addToCart(p.id)}>
+                    <Button
+                      variant="primary"
+                      className="w-100"
+                      onClick={() => addToCart(p.id)}
+                    >
                       Add to Cart
                     </Button>
                   </Card.Body>
@@ -128,7 +157,11 @@ function App() {
             ))}
           </Row>
 
-          {msg && <Alert variant="info" className="mt-4 text-center">{msg}</Alert>}
+          {cartMsg && (
+            <Alert variant="info" className="mt-4 text-center">
+              {cartMsg}
+            </Alert>
+          )}
         </>
       )}
     </Container>
